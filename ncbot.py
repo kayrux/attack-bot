@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives import hashes
 import signal
 import sys
 
+# handle ctrl c
 def signal_handler(sig, frame):
     print(' exiting...')
     sys.exit(0)
@@ -150,10 +151,11 @@ def start_bot(hostname, port, nick, secret):
                         if len(args) > 0:
                             hostname, port = args
                             print("connecting to", hostname, port)
-                            
+                # handle socket disconnection
                 elif msg == []:
                     connected = False
                     print('disconnected')
+                # ignore all other messages
                 else:
                     print("message ignored")
         except socket.timeout:
@@ -165,14 +167,16 @@ def start_bot(hostname, port, nick, secret):
                 print(e)
         except Exception as e:
             print(e)
+        # wait 5s before attempting to reconnect
         time.sleep(5)
 
 
-        
+# keep track of seen nonces
 seen_nonces = []
 
 
 def main():
+    # handle ctrl c gracelfully
     signal.signal(signal.SIGINT, signal_handler)
     args = parse_args()
     print(args.hostname_and_port)
